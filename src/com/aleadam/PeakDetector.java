@@ -5,7 +5,7 @@ import java.util.ArrayList;
 /**
  * Slightly modified from: 
  * https://code.google.com/p/fiji-bi/source/browse/src-plugins/FlowMate_/fiji/plugin/flowmate/analysis/PeakDetector.java
- * To work with doubles instead. See original attributions below.
+ * See original attributions below.
  */
 
 /**
@@ -28,12 +28,12 @@ import java.util.ArrayList;
  */
 public class PeakDetector {
 
-	private double[] T;
+	private int[] T;
 
 	/**
 	 * Create a peak detector for the given time series.
 	 */
-	public PeakDetector(final double[] timeSeries) {
+	public PeakDetector(final int[] timeSeries) {
 		this.T = timeSeries;
 	}
 
@@ -53,11 +53,11 @@ public class PeakDetector {
 	 * @return an int array, with one element by retained peak, containing the
 	 *         index of the peak in the time series array.
 	 */
-	public int[] process(final int windowSize, final double stringency) {
+	public int[] process(final int windowSize, final float stringency) {
 
 		// Compute peak function values
-		double[] S = new double[T.length];
-		double maxLeft, maxRight;
+		float[] S = new float[T.length];
+		float maxLeft, maxRight;
 		for (int i = windowSize; i < S.length - windowSize; i++) {
 
 			maxLeft = T[i] - T[i - 1];
@@ -73,10 +73,10 @@ public class PeakDetector {
 		}
 
 		// Compute mean and std of peak function
-		double mean = 0;
+		float mean = 0;
 		int n = 0;
-		double M2 = 0;
-		double delta;
+		float M2 = 0;
+		float delta;
 		for (int i = 0; i < S.length; i++) {
 			n = n + 1;
 			delta = S[i] - mean;
@@ -84,8 +84,8 @@ public class PeakDetector {
 			M2 = M2 + delta * (S[i] - mean);
 		}
 
-		double variance = M2 / (n - 1);
-		double std = (double) Math.sqrt(variance);
+		float variance = M2 / (n - 1);
+		float std = (float) Math.sqrt(variance);
 
 		// Collect only large peaks
 		ArrayList<Integer> peakLocations = new ArrayList<Integer>();

@@ -4,25 +4,25 @@ import java.util.Arrays;
 
 import ij.ImagePlus;
 import ij.gui.Line;
-import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
 
 public class AllProfilesData {
 	public ImagePlus imp;
 	private String name;
 	public int width, height;
-	private double[] tenths;
-	private double peakAverage;
+	private int[] tenths;
+	private float peakAverage;
 	private int count;
-	public double[][] allPixelValues;
-	public double[][] peakVal;
+	public int[][] allPixelValues;
+	public int[][] peakVal;
 	public int[][] peakPos;
 	public Line[] lines;
 	private int peakWidth;
-	private double stringency;
+	private float stringency;
 
 	public AllProfilesData(ImagePlus imp, String name, int peakWidth,
-			double stringency, double thresholdInt) {
+			float stringency, float thresholdInt) {
 		this.name = name;
 		this.peakWidth = peakWidth;
 		this.stringency = stringency;
@@ -30,13 +30,13 @@ public class AllProfilesData {
 		height = imp.getHeight();
 		lines = generateRoi();
 
-		allPixelValues = new double[lines.length][];
+		allPixelValues = new int[lines.length][];
 		for (int i = 0; i < lines.length; i++) {
 			imp.setRoi(lines[i]);
 			double val[] = lines[i].getPixels();
-			allPixelValues[i] = val;
-			for (int j = 0; j < allPixelValues[i].length; j++) {
-				allPixelValues[i][j] = Math.max(0, allPixelValues[i][j]-thresholdInt);
+			allPixelValues[i] = new int[val.length];
+			for (int j=0; j<val.length; j++) {
+				allPixelValues[i][j] = (int) Math.max(0, val[j]-thresholdInt);
 			}
 		}
 
@@ -45,7 +45,7 @@ public class AllProfilesData {
 
 	public ImageProcessor process() {
 		populatePeaks(allPixelValues, peakWidth, stringency);
-		ImageProcessor ip = new FloatProcessor(width, height);
+		ImageProcessor ip = new ShortProcessor(width, height);
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < peakPos[i].length; j++) {
 				ip.putPixelValue(peakPos[i][j], i, peakVal[i][j]);
@@ -70,16 +70,16 @@ public class AllProfilesData {
 		return lines;
 	}
 
-	private void populatePeaks(double[][] values, int peakWidth,
-			double stringency) {
+	private void populatePeaks(int[][] values, int peakWidth,
+			float stringency) {
 		PeakDetector[] pd = new PeakDetector[values.length];
 		peakPos = new int[values.length][];
-		peakVal = new double[values.length][];
+		peakVal = new int[values.length][];
 		count = 0;
 		for (int i = 0; i < values.length; i++) {
 			pd[i] = new PeakDetector(values[i]);
 			peakPos[i] = pd[i].process(peakWidth, stringency);
-			peakVal[i] = new double[peakPos[i].length];
+			peakVal[i] = new int[peakPos[i].length];
 
 			for (int j = 0; j < peakPos[i].length; j++) {
 				peakVal[i][j] = values[i][peakPos[i][j]];
@@ -88,7 +88,7 @@ public class AllProfilesData {
 		}
 	}
 
-	public double getPeakAverage() {
+	public float getPeakAverage() {
 		if (peakVal == null)
 			return 0;
 		for (int i = 0; i < peakVal.length; i++) {
@@ -99,16 +99,16 @@ public class AllProfilesData {
 		return peakAverage /= count;
 	}
 
-	public double getPeakCount() {
+	public int getPeakCount() {
 		return count;
 	}
 
-	public double getPeakMedian() {
+	public float getPeakMedian() {
 		int size = 0;
 		for (int i = 0; i < peakVal.length; i++) {
 			size += peakVal[i].length;
 		}
-		double[] data = new double[size];
+		float[] data = new float[size];
 		int c = 0;
 		for (int i = 0; i < peakVal.length; i++) {
 			for (int j = 0; j < peakVal[i].length; j++) {
@@ -117,16 +117,16 @@ public class AllProfilesData {
 		}
 		Arrays.sort(data);
 		if (data.length % 2 == 0) {
-			return (data[(data.length / 2) - 1] + data[data.length / 2]) / 2.0;
+			return (float) ((data[(data.length / 2) - 1] + data[data.length / 2]) / 2.0);
 		} else {
 			return data[data.length / 2];
 		}
 	}
 
-	private double getVariance() {
+	private float getVariance() {
 		if (peakAverage==0) return 0;
 		
-		double var = 0;
+		float var = 0;
 		for (int i = 0; i < peakVal.length; i++) {
 			for (int j = 0; j < peakVal[i].length; j++) {
 				var += (peakVal[i][j] - peakAverage)
@@ -136,14 +136,14 @@ public class AllProfilesData {
 		return var / (count - 1);
 	}
 
-	public double getStDev() {
+	public float getStDev() {
 		if (count < 2)
 			return 0;
-		return Math.sqrt(getVariance());
+		return (float) Math.sqrt(getVariance());
 	}
 
-	public double getMaxPeak() {
-		Double max = 0.0;
+	public int getMaxPeak() {
+		int max = 0;
 		for (int i = 0; i < peakVal.length; i++) {
 			for (int j = 0; j < peakVal[i].length; j++) {
 				max = max > peakVal[i][j] ? max : peakVal[i][j];
@@ -152,8 +152,8 @@ public class AllProfilesData {
 		return max;
 	}
 
-	public double getMinPeak() {
-		Double min = Double.MAX_VALUE;
+	public int getMinPeak() {
+		int min = Integer.MAX_VALUE;
 		for (int i = 0; i < peakVal.length; i++) {
 			for (int j = 0; j < peakVal[i].length; j++) {
 				min = min < peakVal[i][j] ? min : peakVal[i][j];
@@ -166,18 +166,18 @@ public class AllProfilesData {
 		return name;
 	}
 
-	public double getTenth(int tenth) {
+	public int getTenth(int tenth) {
 		return tenths[tenth];
 	}
 
-	public double getAverageBelow(int tenth) {
+	public float getAverageBelow(int tenth) {
 		int size = 0;
-		double avg = 0;
+		float avg = 0;
 		int count = 0;
 		for (int i = 0; i < allPixelValues.length; i++) {
 			size += allPixelValues[i].length;
 		}
-		double[] data = new double[size];
+		float[] data = new float[size];
 		int c = 0;
 		for (int i = 0; i < allPixelValues.length; i++) {
 			for (int j = 0; j < allPixelValues[i].length; j++) {
@@ -194,13 +194,13 @@ public class AllProfilesData {
 		return avg / count;
 	}
 
-	private double[] getTenths(double[][] values) {
+	private int[] getTenths(int[][] values) {
 		int size = 0;
-		double[] tenths = new double[10];
+		int[] tenths = new int[10];
 		for (int i = 0; i < values.length; i++) {
 			size += values[i].length;
 		}
-		double[] data = new double[size];
+		int[] data = new int[size];
 		int c = 0;
 		for (int i = 0; i < values.length; i++) {
 			for (int j = 0; j < values[i].length; j++) {

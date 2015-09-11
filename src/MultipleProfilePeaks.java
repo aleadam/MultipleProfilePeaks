@@ -20,8 +20,9 @@ import ij.io.FileSaver;
 import ij.io.SaveDialog;
 import ij.plugin.filter.ExtendedPlugInFilter;
 import ij.plugin.filter.PlugInFilterRunner;
-import ij.process.FloatProcessor;
+import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
 
 public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 		DialogListener {
@@ -30,7 +31,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 			| DOES_32 | KEEP_PREVIEW;
 	
 	private int peakWidth = 20;
-	private double stringency = 3;
+	private float stringency = 3;
 	private int threshold = 0;
 	private int density = 10;
 	private int region = 5;
@@ -39,7 +40,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	private ImagePlus origImp, workingImp, resultImp;
 	private int maxInt;
 	private boolean needSave;
-	private Float[] pixels;
+	private Integer[] pixels;
 
 	public int setup(String arg, ImagePlus imp) {
 		if (arg.equals("about")) {
@@ -75,7 +76,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 			return false;
 
 		peakWidth = (int) gd.getNextNumber();
-		stringency = gd.getNextNumber();
+		stringency = (float) gd.getNextNumber();
 		threshold = (int) gd.getNextNumber();
 		density = (int) gd.getNextNumber();
 		region = (int) gd.getNextNumber();
@@ -85,10 +86,10 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 			peakWidth = 2;
 		if (peakWidth > 100)
 			peakWidth = 100;
-		if (stringency < 0.05D)
-			stringency = 0.05D;
-		if (stringency > 4.99D)
-			stringency = 4.99D;
+		if (stringency < 0.05)
+			stringency = 0.05F;
+		if (stringency > 4.99)
+			stringency = 4.99F;
 		if (threshold < 0)
 			threshold = 0;
 		if (threshold > maxInt)
@@ -125,8 +126,8 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 			resultImp = new ImagePlus(name + " edges", stack);
 			resultImp.show();
 		} else {
-			float[] orig = (float[]) ip.getPixels();
-			float[] dest = (float[]) resultImp.getProcessor().getPixels();
+			short[] orig = (short[]) ip.getPixels();
+			short[] dest = (short[]) resultImp.getProcessor().getPixels();
 			for (int i = 0; i < orig.length; i++) {
 				dest[i] = orig[i];
 			}
@@ -138,7 +139,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	}
 
 	private ImageProcessor densityFilterSquare(ImageProcessor ip) {
-		ImageProcessor ip2 = new FloatProcessor(ip.getWidth(), ip.getHeight());
+		ImageProcessor ip2 = new ShortProcessor(ip.getWidth(), ip.getHeight());
 
 		if (density == 1)
 			return ip;
@@ -161,7 +162,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 
 	private ImageProcessor densityFilterCircle(ImageProcessor ip) {
 		ImageProcessor tmpIP = ip.duplicate();
-		ImageProcessor ip2 = new FloatProcessor(ip.getWidth(), ip.getHeight());
+		ImageProcessor ip2 = new ShortProcessor(ip.getWidth(), ip.getHeight());
 		int radius = region;
 		OvalRoi roi = new OvalRoi(0, 0, 2 * radius, 2 * radius);
 		tmpIP.setRoi(roi);
@@ -192,14 +193,14 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	}
 
 	private void pruneImage() {
-		float[] imagePixels = (float[]) resultImp.getProcessor().getPixels();
-		ArrayList<Float> pixArray = new ArrayList<Float>();
+		short[] imagePixels = (short[]) resultImp.getProcessor().getPixels();
+		ArrayList<Integer> pixArray = new ArrayList<Integer>();
 		for (int i = 0; i < imagePixels.length; i++) {
 			if (imagePixels[i] > 0) {
-				pixArray.add(imagePixels[i]);
+				pixArray.add((int)imagePixels[i]);
 			}
 		}
-		pixels = pixArray.toArray(new Float[pixArray.size()]);
+		pixels = pixArray.toArray(new Integer[pixArray.size()]);
 	}
 
 	public float getPeakAverage() {
@@ -215,7 +216,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	}
 
 	public float getPeakMedian() {
-		Float[] sortedPixels = pixels.clone();
+		Integer[] sortedPixels = pixels.clone();
 		Arrays.sort(sortedPixels);
 		if (sortedPixels.length % 2 == 0) {
 			return (sortedPixels[(sortedPixels.length / 2) - 1] + sortedPixels[sortedPixels.length / 2]) / 2;
@@ -233,8 +234,8 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 		return var / (pixels.length - 1);
 	}
 
-	public double getStDev() {
-		return Math.sqrt(getVariance());
+	public float getStDev() {
+		return (float) Math.sqrt(getVariance());
 	}
 
 	public float getMaxPeak() {
@@ -263,7 +264,22 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 				if (!fileImg.exists()) {
 					fileImg.createNewFile();
 				}
-				FileSaver fs = new FileSaver(resultImp);
+
+				ImageProcessor bp = new ByteProcessor (resultImp.getWidth(), resultImp.getHeight());
+				ImageProcessor rip = resultImp.getProcessor();
+				int maxValue = pd.getMaxPeak();
+				for (int i=0; i<resultImp.getWidth(); i++) {
+					for (int j=0; j<resultImp.getHeight(); j++) {
+						bp.putPixel(i, j, 255*rip.getPixel(i, j)/maxValue);
+					}
+				}
+				ImageStack stack = new ImageStack(bp.getWidth(), bp.getHeight());
+				stack.addSlice("1", bp);
+				ImagePlus resultImpByte = new ImagePlus(name + " edges", stack);
+				
+				FileSaver fs = new FileSaver(resultImpByte);
+
+//				FileSaver fs = new FileSaver(resultImp);
 				fs.saveAsTiff(saveNameImg);
 			}
 
