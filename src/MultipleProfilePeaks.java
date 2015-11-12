@@ -41,6 +41,8 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	private int maxInt;
 	private boolean needSave;
 	private Integer[] pixels;
+	private int channels;
+	private int channel = 0;
 
 	public int setup(String arg, ImagePlus imp) {
 		if (arg.equals("about")) {
@@ -51,6 +53,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 		workingImp = imp.duplicate();
 		maxInt = (int) workingImp.getProcessor().getMax();
 		name = origImp.getTitle();
+		channels = origImp.getStackSize();
 		return FLAGS;
 	}
 
@@ -62,6 +65,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 		gd.addSlider("Density requirement (1-50)", 1, 50, 1);
 		gd.addSlider("region size (1-20)", 1, 20, 5);
 		gd.addChoice("Region type:", REGION_TYPES, REGION_TYPES[2]);
+		gd.addSlider("Channel: (1-" + channels + ")", 1, channels, 1);
 		gd.addPreviewCheckbox(pfr);
 		gd.addDialogListener(this);
 		gd.showDialog();
@@ -81,6 +85,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 		density = (int) gd.getNextNumber();
 		region = (int) gd.getNextNumber();
 		regionType = gd.getNextChoiceIndex();
+		channel = (int) gd.getNextNumber();
 
 		if (peakWidth < 2)
 			peakWidth = 2;
@@ -110,8 +115,14 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	}
 
 	public void run(ImageProcessor origIP) {
+		
+		ImageProcessor selectedIP = origImp.getStack().getProcessor(channel);
+		ImageStack selectedStack = new ImageStack(selectedIP.getWidth(), selectedIP.getHeight());
+		selectedStack.addSlice("1", selectedIP);
+		ImagePlus selectedImp = new ImagePlus(name + " channel: " + channel, selectedStack);
+		name = FilenameUtils.getBaseName(name) + " - channel " + channel; 
 
-		AllProfilesData pd = new AllProfilesData(workingImp, name, peakWidth,
+		AllProfilesData pd = new AllProfilesData(selectedImp, name, peakWidth,
 				stringency, threshold);
 		ImageProcessor ip = pd.process();
 		if (regionType == 0) {
@@ -257,7 +268,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 	public void save(AllProfilesData pd) {
 		try {
 			SaveDialog sdImg = new SaveDialog("Save peak image as...", "",
-					FilenameUtils.getBaseName(name), ".tif");
+					name, ".tif");
 			if (sdImg.getDirectory() != null) {
 				String saveNameImg = sdImg.getDirectory() + sdImg.getFileName();
 				File fileImg = new File(saveNameImg);
@@ -284,7 +295,7 @@ public class MultipleProfilePeaks implements ExtendedPlugInFilter,
 			}
 
 			SaveDialog sdData = new SaveDialog("Save data as...", "",
-					FilenameUtils.getBaseName(name), ".csv");
+					name, ".csv");
 			if (sdData.getDirectory() != null) {
 				String saveNameData = sdData.getDirectory()
 						+ sdData.getFileName();
